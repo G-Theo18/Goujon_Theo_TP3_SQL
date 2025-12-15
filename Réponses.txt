@@ -1,0 +1,45 @@
+3.1 Travail à faire
+
+2. Effectuer un virement dans une fenêtre d’un navigateur, et, dans une autre, afficher la liste des comptes
+ouverts, en actualisant la page régulièrement. Que constate-t-on comme incohérence ? D’ou vient-elle ?
+
+La somme totale des soldes est temporairement incorrecte, puisque le solde du compte destination n'est pas encore crédité.
+La cause provient de la lecture d’un état partiel de la transaction en cours, avant que toutes les mises à jour 
+aient été effectuées.
+
+
+3. Effectuer un virement dans une fenêtre d’un navigateur, et, depuis le shell, utiliser mysqladmin pour
+interrompre (kill) la requête en cours (voir la documentation de cet outil). Que constate-t-on comme
+incohérence ? D’ou vient-elle ?
+
+On remarque que le compte source est débité, tandis que le compte destination est non-crédité, ce qui cause un solde total incorrect.
+Ceci provient de l'interruption de la transaction en cours.
+
+
+4. Effectuer deux virements en même temps dans une fenêtre d’un navigateur, en s’arrangeant pour faire
+apparaître une incohérence. D’ou vient-elle ?
+
+Le solde apparaît comme négatif ou incorrect, et la somme totale des comptes est incorrecte.
+Les deux transactions se font de manière simultanées accédant au même compte source, en lisant 
+le solde avant que l’autre transaction ait effectué son débit. D'ou l'erreur. 
+
+
+5. Lesquels des trois problèmes signalés précédemment sont-ils résolus ?
+
+Poser un verrou WRITE sur les tables avant un virement empêche la lecture ou l’écriture concurrente, 
+ce qui permet de résout les incohérences dues aux lectures simultanées et aux virements concurrents sur le même compte. 
+En revanche, cela ne protège pas contre une interruption de la requête via "mysqladmin kill", ce qui peut laisser le 
+compte source débité sans créditer le compte destination.
+
+6. x
+
+7. Expérimenter avec ces quatre modes pour comprendre les différences. 
+Quels avantages voyez-vous à chacun de ces modes ?
+
+- READ UNCOMMITTED : Très rapide, utile pour des rapports ou statistiques.
+
+- READ COMMITTED : Évite les dirty reads et permet à plusieurs transactions de progresser sans trop de blocages.
+
+- REPEATABLE READ : Garantit la consistance de la lecture pendant la transaction, utile pour des calculs ou vérifications intermédiaires (deux transactions simultanées).
+
+- SERIALIZABLE : Pas de dirty reads, pas de non repeatable reads. 

@@ -1,3 +1,8 @@
+USE banque;
+
+ALTER TABLE compte ENGINE=InnoDB;
+ALTER TABLE virement ENGINE=InnoDB;
+
 DROP PROCEDURE IF EXISTS virement;
 
 DELIMITER //
@@ -12,6 +17,7 @@ proc: BEGIN
     DECLARE solde_source DECIMAL(10,2);
     DECLARE nb_source INT;
     DECLARE nb_destination INT;
+    DECLARE v_dummy INT;
 
     SET p_result = 0;
 
@@ -36,7 +42,12 @@ proc: BEGIN
 
     START TRANSACTION;
 
+    SELECT SLEEP(5) INTO v_dummy;
+
     UPDATE compte SET solde = solde - p_montant WHERE id = p_source;
+
+    SELECT SLEEP(5) INTO v_dummy;
+
     UPDATE compte SET solde = solde + p_montant WHERE id = p_destination;
 
     INSERT INTO virement(compte_source, compte_destination, montant)
@@ -50,3 +61,4 @@ END;
 //
 
 DELIMITER ;
+
