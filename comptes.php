@@ -1,94 +1,82 @@
 <?php
-// Paramètres de connexion
-$host = "localhost";
-$dbname = "banque";
-$user = "root";
-$pass = "";
+$pdo = new PDO("mysql:host=localhost;dbname=banque;charset=utf8", "root", "");
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Connexion PDO
-try {
-    $pdo = new PDO(
-        "mysql:host=$host;dbname=$dbname;charset=utf8",
-        $user,
-        $pass,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-} catch (PDOException $e) {
-    die("Erreur de connexion : " . $e->getMessage());
+$message = "";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $source = intval($_POST['source']);
+    $destination = intval($_POST['destination']);
+    $montant = floatval($_POST['montant']);
+
+    if ($source === $destination) {
+        $message = "Erreur : le compte source et destination doivent être différents.";
+    } else {
+        $stmt = $pdo->prepare("CALL virement(:source, :destination, :montant, @res)");
+        $stmt->execute([
+            ':source' => $source,
+            ':destination' => $destination,
+            ':montant' => $montant
+        ]);
+
+        $res = $pdo->query("SELECT @res AS resultat")->fetch(PDO::FETCH_ASSOC)['resultat'];
+
+        if ($res == 1) {
+            $message = "Virement réussi !";
+        } else {
+            $message = "Erreur : virement impossible (solde insuffisant, compte inexistant ou montant invalide).";
+        }
+    }
 }
 
-// Récupération des comptes
-$stmt = $pdo->query("SELECT id, solde FROM compte ORDER BY id");
-$comptes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Somme des soldes
-$stmtTotal = $pdo->query("SELECT SUM(solde) AS total FROM compte");
-$total = $stmtTotal->fetch(PDO::FETCH_ASSOC)['total'];
+$comptes = $pdo->query("SELECT id, solde FROM compte ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+$total = $pdo->query("SELECT SUM(solde) AS total FROM compte")->fetch(PDO::FETCH_ASSOC)['total'];
 ?>
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Comptes bancaires</title>
-</head>
-<body>
+<h1>Comptes bancaires</h1>
 
-<h2>Liste des comptes bancaires</h2>
-
-<table border="1" cellpadding="5">
+<table border="1" cellpadding="5" cellspacing="0">
     <tr>
-        <th>Compte</th>
+        <th>ID</th>
         <th>Solde (€)</th>
     </tr>
-
-    <?php foreach ($comptes as $compte): ?>
-        <tr>
-            <td><?= htmlspecialchars($compte['id']) ?></td>
-            <td><?= number_format($compte['solde'], 2, ',', ' ') ?></td>
-        </tr>
+    <?php foreach ($comptes as $c): ?>
+    <tr>
+        <td><?= $c['id'] ?></td>
+        <td><?= number_format($c['solde'],2) ?></td>
+    </tr>
     <?php endforeach; ?>
+    <tr>
+        <th>Total</th>
+        <th><?= number_format($total,2) ?></th>
+    </tr>
 </table>
 
-<p>
-    <strong>Somme totale des soldes :</strong>
-    <?= number_format($total, 2, ',', ' ') ?> €
-</p>
-
-<hr>
-
 <h2>Effectuer un virement</h2>
-
-<form method="post" action="virement.php">
-    <label>Compte source :</label>
-    <select name="compte_source" required>
-        <?php foreach ($comptes as $compte): ?>
-            <option value="<?= $compte['id'] ?>">
-                Compte <?= $compte['id'] ?>
-            </option>
+<form method="post">
+    Compte source:
+    <select name="source">
+        <?php foreach ($comptes as $c): ?>
+            <option value="<?= $c['id'] ?>"><?= $c['id'] ?> (<?= number_format($c['solde'],2) ?> €)</option>
         <?php endforeach; ?>
     </select>
 
-    <br><br>
+    </br></br>
 
-    <label>Compte destination :</label>
-    <select name="compte_destination" required>
-        <?php foreach ($comptes as $compte): ?>
-            <option value="<?= $compte['id'] ?>">
-                Compte <?= $compte['id'] ?>
-            </option>
+    Compte destination:
+    <select name="destination">
+        <?php foreach ($comptes as $c): ?>
+            <option value="<?= $c['id'] ?>"><?= $c['id'] ?> (<?= number_format($c['solde'],2) ?> €)</option>
         <?php endforeach; ?>
     </select>
 
-    <br><br>
-
-    <label>Montant (€) :</label>
-    <input type="number" name="montant" step="1" min="1" required>
-
-    <br><br>
-
-    <button type="submit">Valider le virement</button>
+    </br></br>
+    
+    Montant:
+    <input type="number" step="1" min="1" name="montant" required>
+    <input type="submit" value="Virement">
 </form>
 
-</body>
-</html>
+<?php if ($message): ?>
+<p><?= $message ?></p>
+<?php endif; ?>
